@@ -14,5 +14,11 @@ result = apple.merge(
     how='left'
 )
 
+# 按照 REPORTCALENDARORQUARTER 降序排列，再按照 FILINGMANAGER_NAME 升序排列
+result = result.sort_values(
+    by=['REPORTCALENDARORQUARTER', 'FILINGMANAGER_NAME'],
+    ascending=[False, True]
+)
+
 # 导出
 result.to_csv("apple_holdings_with_date.csv", index=False)
