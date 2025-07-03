@@ -1,33 +1,35 @@
 import pandas as pd
 
-
-# 1. 设置你想要筛选的公司名称列表（可自定义）
-target_companies = [
-    "BlackRock", 
-    "Vanguard", 
-    "FSA Wealth Management LLC", 
-    "FULLER & THALER ASSET MANAGEMENT, INC.",
-    "FIDELITY D & D BANCORP INC"
-]
-
-# 2. 读取原始数据
+# 1. 读取数据
 df = pd.read_csv("apple_only_grouped.csv")
 
-# 3. 筛选出目标公司数据
-filtered_df = df[df["FILINGMANAGER_NAME"].isin(target_companies)]
+# 2. 按公司和季度去重求平均：先做公司-季度的平均值
+grouped = df.groupby(["FILINGMANAGER_NAME", "REPORTCALENDARORQUARTER"])["VALUE"].sum().reset_index()
 
-# 4. 透视表，将时间作为列，公司名称作为行，持仓金额为值
+# 3. 然后再按公司求“季度平均持仓”
+avg_holdings = (
+    grouped.groupby("FILINGMANAGER_NAME")["VALUE"]
+    .mean()
+    .sort_values(ascending=False)
+    .head(100)
+    .index.tolist()
+)
+
+# 4. 从原始数据中过滤这些公司
+filtered_df = df[df["FILINGMANAGER_NAME"].isin(avg_holdings)]
+
+# 5. 透视表：行是公司，列是季度，值是持仓金额
 pivot_df = filtered_df.pivot_table(
     index="FILINGMANAGER_NAME",
     columns="REPORTCALENDARORQUARTER",
     values="VALUE",
-    aggfunc="sum"  # 如果同一公司同一时间点有多条记录则求和
+    aggfunc="sum"
 )
 
-# 5. 将列按时间顺序排序（如果格式为 DD-MMM-YYYY 则需要先转换）
-pivot_df.columns = pd.to_datetime(pivot_df.columns, format="%d-%b-%Y")
+# 6. 按时间排序列
+pivot_df.columns = pd.to_datetime(pivot_df.columns, format="%d-%b-%Y", errors="coerce")
 pivot_df = pivot_df.sort_index(axis=1)
-pivot_df.columns = pivot_df.columns.strftime("%d-%b-%Y")  # 转换回字符串格式
+pivot_df.columns = pivot_df.columns.strftime("%d-%b-%Y")
 
-# 6. 保存为新的 Excel 文件
-pivot_df.to_excel("selected_companies_holdings.xlsx")
+# 7. 保存结果
+pivot_df.to_excel("top_100_avg_holdings.xlsx")
