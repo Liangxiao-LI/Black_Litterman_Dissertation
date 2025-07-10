@@ -4,9 +4,6 @@ import pandas as pd
 import os
 
 
-# 前缀用于输出文件命名
-prefix = target_keywords[0].lower().replace(" ", "_")
-
 # ✅ 加载缓存
 info = pd.read_pickle("all_info_combined.pkl")
 cover = pd.read_pickle("all_cover_combined.pkl")
@@ -19,9 +16,69 @@ df['issuer_lower'] = df['NAMEOFISSUER'].str.lower()
 temp = df
 
 # ✅ 修改这里：目标公司关键词配置
-target_keywords = ['apple']
-target_identifiers = ['inc', 'inc.', 'incorporated', 'computer', ', inc', 'apple inc']
-exclude_keywords = ['pineapple', 'hospitality', 'reit', 'pepper', 'put']
+#target_keywords = ['apple']
+#target_identifiers = ['inc', 'inc.', 'incorporated', 'computer', ', inc', 'apple inc']
+#exclude_keywords = ['pineapple', 'hospitality', 'reit', 'pepper', 'put']
+
+#target_keywords = ['microsoft']
+#target_identifiers = []
+#exclude_keywords = []
+
+
+#target_keywords = ['amazon']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['nvidia']
+#target_identifiers = []
+#exclude_keywords = []
+
+
+#target_keywords = ['google']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['meta']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['advanced micro']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['palantir']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['snowflake']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['shopify']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['asml']
+#target_identifiers = []
+#exclude_keywords = []
+
+#target_keywords = ['salesforce']
+#target_identifiers = []
+#exclude_keywords = []
+
+target_keywords = ['palo alto']
+target_identifiers = []
+exclude_keywords = []
+
+
+
+
+#target_keywords = ['tesla']
+#target_identifiers = ['inc', 'inc.', 'incorporated', 'computer', ', inc', 'tesla inc']
+#exclude_keywords = []
+
+# 前缀用于输出文件命名
+prefix = target_keywords[0].lower().replace(" ", "_")
 
 
 df = temp
@@ -55,8 +112,8 @@ df['REPORTCALENDARORQUARTER_dt'] = pd.to_datetime(
 df = df.sort_values(by='REPORTCALENDARORQUARTER_dt', ascending=False)
 
 # 输出清洗后完整数据
-#df.to_csv(f"{prefix}_only_cleaned.csv", index=False)
-#print(f"✅ 已保存清洗后数据为：{prefix}_only_cleaned.csv")
+df.to_csv(f"{prefix}_only_cleaned.csv", index=False)
+print(f"✅ 已保存清洗后数据为：{prefix}_only_cleaned.csv")
 
 # 分组聚合
 selected_df = df[['VALUE', 'REPORTCALENDARORQUARTER', 'FILINGMANAGER_NAME']].copy()
