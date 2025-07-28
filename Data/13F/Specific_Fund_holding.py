@@ -35,11 +35,21 @@ for col in ['VALUE', 'SSHPRNAMT']:
 available_cols = [col for col in columns_to_keep if col in matched_info.columns]
 output_df = matched_info[available_cols]
 
+merged_df = output_df.merge(
+    matched_cover[['ACCESSION_NUMBER', 'REPORTCALENDARORQUARTER']],
+    on='ACCESSION_NUMBER',
+    how='left'
+)
+
+# 将 REPORTCALENDARORQUARTER 转换为日期格式并降序排序
+merged_df['REPORTCALENDARORQUARTER'] = pd.to_datetime(merged_df['REPORTCALENDARORQUARTER'], format="%d-%b-%Y")
+merged_df = merged_df.sort_values(by='REPORTCALENDARORQUARTER', ascending=False)
+
 # 打印前几行结果
 print(f"\n📊 '{target_keyword}' 持仓信息如下（前10项）：")
-print(output_df.head(10))
+print(merged_df.head(10))
 
 # 保存完整表格
 output_file = f"{target_keyword}_full_holdings.xlsx"
-output_df.to_excel(output_file, index=False)
+merged_df.to_excel(output_file, index=False)
 print(f"\n💾 已导出完整持仓信息到：{output_file}")
