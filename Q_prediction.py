@@ -59,6 +59,12 @@ def next_quarter(q):
     else:
         return f"{year}(Q{qtr+1})"
 
+def safe_parse_date(x):
+    try:
+        return pd.to_datetime(x, format='%d-%b-%Y')
+    except Exception:
+        return x  # 如果是 2024(Q2) 这种季度格式，直接返回原值
+
 def prefilter_funds(funds, cutoff_quarter, min_points=3):
     valid_pairs = []
     for _, row in funds.iterrows():
@@ -71,7 +77,7 @@ def prefilter_funds(funds, cutoff_quarter, min_points=3):
         fund_df = fund_df[fund_df['FILINGMANAGER_NAME'] == fund_name]
         if fund_df.empty:
             continue
-        fund_df['REPORTCALENDARORQUARTER'] = pd.to_datetime(fund_df['REPORTCALENDARORQUARTER'], format='%d-%b-%Y')
+        fund_df['REPORTCALENDARORQUARTER'] = fund_df['REPORTCALENDARORQUARTER'].apply(safe_parse_date)
         fund_df['YearMonth'] = fund_df['REPORTCALENDARORQUARTER'].dt.to_period('M').dt.to_timestamp()
         fund_df['QuarterLabel'] = fund_df['REPORTCALENDARORQUARTER'].apply(lambda d: f"{d.year}(Q{(d.month-1)//3+1})")
         fund_df = fund_df[fund_df['QuarterLabel'] <= cutoff_quarter]
@@ -156,9 +162,7 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
         if fund_data.empty:
             print(f"⚠️ Skipped {target_fund} - {target_company}: No data for this manager")
             return None
-        fund_data['REPORTCALENDARORQUARTER'] = pd.to_datetime(
-            fund_data['REPORTCALENDARORQUARTER'], format='%d-%b-%Y'
-        )
+        fund_data['REPORTCALENDARORQUARTER'] = fund_data['REPORTCALENDARORQUARTER'].apply(safe_parse_date)
         fund_data = fund_data.sort_values(by='REPORTCALENDARORQUARTER').reset_index(drop=True)
         fund_data['YearMonth'] = fund_data['REPORTCALENDARORQUARTER'].dt.to_period('M').dt.to_timestamp()
         merged_df = pd.merge(fund_data, macro_df, on='YearMonth', how='inner').drop(columns=['Date'])
@@ -281,8 +285,12 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
 funds_all = pd.read_csv(funds_path)
 results = []
 
-conviction_df = load_fund_conviction("all_info_combined_newest.pkl", "all_cover_combined_newest.pkl")
-
+if 'conviction_df' not in globals():
+    conviction_df = load_fund_conviction(
+        "/Users/leon/Documents/GitHub/Black_Litterman_Dissertation/Data/13F/all_info_combined_newest.pkl",
+        "/Users/leon/Documents/GitHub/Black_Litterman_Dissertation/Data/13F/all_cover_combined_newest.pkl"
+    )
+    
 for i in range(start_index+1, len(quarters)):  
     cutoff_quarter = quarters[i-1]
     train_start = max(0, i - 8)  # 8 个季度窗口
