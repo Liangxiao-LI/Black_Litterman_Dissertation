@@ -111,42 +111,8 @@ def prefilter_funds(funds, cutoff_quarter, min_points=3):
             valid_pairs.append((fund_name, ticker))
     return pd.DataFrame(valid_pairs, columns=['FILINGMANAGER_NAME','ticker'])
 
-def load_fund_conviction(info_path="all_info_combined_newest.pkl", cover_path="all_cover_combined_newest.pkl"):
-    info = pd.read_pickle(info_path)
-    cover = pd.read_pickle(cover_path)
-    df = info.merge(cover[['ACCESSION_NUMBER','FILINGMANAGER_NAME','REPORTCALENDARORQUARTER']], on='ACCESSION_NUMBER', how='left')
-    df['REPORTCALENDARORQUARTER'] = pd.to_datetime(df['REPORTCALENDARORQUARTER'], format='%d-%b-%Y')
-    grouped = df.groupby(['FILINGMANAGER_NAME','REPORTCALENDARORQUARTER'])
-    # 计算每个季度每个基金的总持仓
-    df['total_value'] = grouped['VALUE'].transform('sum')
-    df['weight'] = df['VALUE'] / df['total_value']
-    return df[['FILINGMANAGER_NAME','NAMEOFISSUER','CUSIP','REPORTCALENDARORQUARTER','VALUE','weight']]
-
-def is_high_conviction(fund, cusip, quarter, conviction_df, threshold=0.1):
-    row = conviction_df[
-        (conviction_df['FILINGMANAGER_NAME'] == fund) &
-        (conviction_df['CUSIP'] == cusip) &
-        (conviction_df['REPORTCALENDARORQUARTER'] == quarter)
-    ]
-    if row.empty:
-        return False
-    return row['weight'].values[0] >= threshold
-
 def process_one_fund(target_fund, target_company, cutoff_quarter):
     try:
-
-        # ---- Step 0: Conviction Check ----
-        # 注意：这里需要提前加载全局 conviction_df（在主程序最前面 load_fund_conviction）
-        if not is_high_conviction(
-            target_fund,
-            target_company,
-            pd.to_datetime(cutoff_quarter),
-            conviction_df,
-            threshold=0.1  # 可以调阈值
-        ):
-            print(f"⏭️ Skipped {target_fund} - {target_company}: low conviction")
-            return None
-
         # ---- Step 1: Load macro data ----
         macro_df = pd.read_excel(macro_path).iloc[:21]
         macro_df['Date'] = pd.to_datetime(macro_df['Date'], format='%m/%d/%y')
@@ -188,17 +154,8 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
         cols_to_drop = [col for col in merged_financials.columns if col.startswith("Report Filing")]
         merged_financials = merged_financials.drop(columns=cols_to_drop)
 
-        
-        #output_path = os.path.join(output_dir, f"{target_company}_{target_fund}_merged_financials.csv")
-        #merged_financials.to_csv(output_path, index=False)
-        
-        
-        # ---- Step 4.1: 筛选训练集 ----
         full_financials = merged_financials.copy()
-        
-        
-        
-        
+
         # ---- Step 4.1: 取最近 8 个季度作为训练集 ----
         all_quarters_sorted = sorted(merged_financials['QuarterLabel'].unique(), key=lambda x: (int(x[:4]), int(x[-2])))
         if cutoff_quarter not in all_quarters_sorted:
@@ -209,8 +166,6 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
         train_quarters = all_quarters_sorted[train_start_idx:cutoff_idx + 1]
         merged_financials = merged_financials[merged_financials['QuarterLabel'].isin(train_quarters)]
 
-        
-        
         if merged_financials.empty:
             print(f"⚠️ Skipped {target_fund} - {target_company}: No data before {cutoff_quarter}")
             return None
@@ -230,7 +185,6 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
             print(f"⚠️ Skipped {target_fund} - {target_company}: Not enough data points")
             return None
 
-        
         pca_components = min(n_components, 20, X.shape[0], X.shape[1])  # 样本数和特征数的最小值
         model = Pipeline([
             ('scaler', StandardScaler()),
@@ -241,9 +195,7 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
 
         model.fit(X, y)
         lasso = model.named_steps['lasso']
-        #pca = model.named_steps['pca']
         y_pred = model.predict(X)
-
         r2 = r2_score(y, y_pred)
 
         if r2 <= 0:
@@ -285,12 +237,6 @@ def process_one_fund(target_fund, target_company, cutoff_quarter):
 funds_all = pd.read_csv(funds_path)
 results = []
 
-if 'conviction_df' not in globals():
-    conviction_df = load_fund_conviction(
-        "/Users/leon/Documents/GitHub/Black_Litterman_Dissertation/Data/13F/all_info_combined_newest.pkl",
-        "/Users/leon/Documents/GitHub/Black_Litterman_Dissertation/Data/13F/all_cover_combined_newest.pkl"
-    )
-    
 for i in range(start_index+1, len(quarters)):  
     cutoff_quarter = quarters[i-1]
     train_start = max(0, i - 8)  # 8 个季度窗口
@@ -301,10 +247,7 @@ for i in range(start_index+1, len(quarters)):
         res = process_one_fund(row['FILINGMANAGER_NAME'], row['ticker'], cutoff_quarter)
         if res:
             results.append(res)
-# Save results summary
-#pd.DataFrame(results).to_csv(os.path.join(output_dir, "modeling_results_summary.csv"), index=False)
 pd.DataFrame(results).to_csv("modeling_results_summary.csv", index=False)
-
 
 
 
